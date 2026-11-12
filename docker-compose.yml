@@ -1,0 +1,11 @@
+services:
+  ros-dev:
+    build: .
+    network_mode: "host"
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ./src:/ros2_ws/src
+    stdin_open: true
+    tty: true
