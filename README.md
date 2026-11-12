@@ -4,21 +4,20 @@ A hardware-agnostic, containerized ROS 2 Humble development environment for the 
 
 **1. Clone the repository**
 
-bash
-git clone git@github.com:Hemish-Patel/lsmt_workspace.git
-cd lsmt_workspace
+
+`git clone git@github.com:Hemish-Patel/lsmt_workspace.git`
+`cd lsmt_workspace`
 
 **2. Build the Environment (Run Once)**
 This will download Ubuntu 22.04 and ROS 2 Humble, then compile the container.
 
-bash
-sudo docker compose build
+`sudo docker compose build`
 
 **3. Launch the Container**
 This script automatically detects your host hardware (NVIDIA, AMD, or Intel) and boots the container with the correct GPU acceleration.
 
-bash
-./launch_lsmt.sh
+
+`./launch_lsmt.sh`
 
 ## Development Workflow
 Once the script runs, you will be dropped into the container at `root@hostname:/ros2_ws#`. 
