@@ -7,5 +7,13 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ./src:/ros2_ws/src
+      - ros2_build:/ros2_ws/build
+      - ros2_install:/ros2_ws/install
+      - ros2_log:/ros2_ws/log
     stdin_open: true
     tty: true
+
+volumes:
+  ros2_build:
+  ros2_install:
+  ros2_log:

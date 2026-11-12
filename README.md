@@ -22,4 +22,19 @@ This script automatically detects your host hardware (NVIDIA, AMD, or Intel) and
 ## Development Workflow
 Once the script runs, you will be dropped into the container at `root@hostname:/ros2_ws#`. 
 
-Any ROS 2 C++ or Python packages you create inside the `src/` directory will instantly sync to your host computer. You can edit your code in VS Code on your host machine, and compile it (`colcon build`) inside the container.
+Any ROS 2 C++ or Python packages you create inside the `src/` directory will instantly sync to your host computer. You can edit your code in VS Code on your host machine, and compile it inside the container.
+
+**4. Compile the Workspace (First Time or After Code Changes)**
+Inside the container (`/ros2_ws`):
+
+```bash
+colcon build --merge-install
+source install/setup.bash
+```
+
+*(Your build artifacts are persisted in Docker volumes and automatically sourced on future container launches.)*
+
+**5. Launch VRX Simulation**
+```bash
+ros2 launch vrx_gz competition.launch.py world:=sydney_regatta
+```
