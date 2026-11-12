@@ -3,7 +3,7 @@
 xhost +local:root
 
 # Detect NVIDIA GPU and launch with Prime offloading
-if command -v nvidia-smi &> /dev/null; then
+if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
     echo "NVIDIA GPU detected. Launching with hardware acceleration..."
     sudo docker compose -f docker-compose.yml -f docker-compose.nvidia.yml run --rm ros-dev bash
 else
