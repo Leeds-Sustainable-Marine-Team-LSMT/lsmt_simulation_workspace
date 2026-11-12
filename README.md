@@ -4,12 +4,17 @@ A hardware-agnostic, containerized **ROS 2 Humble** and **Gazebo Garden (VRX)** 
 
 ---
 
-## Prerequisites
+## Prerequisites & Hardware Support
 
 Before starting, ensure you have the following installed on your Linux host machine:
 - **Git**
 - **Docker** and **Docker Compose** (`docker compose` plugin)
-- *(NVIDIA GPU users only)* **[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)** for hardware-accelerated rendering (`launch_lsmt.sh` automatically detects NVIDIA, AMD, or Intel GPUs).
+
+### GPU Acceleration Support
+The environment automatically adapts to your hardware when launched via `./launch_lsmt.sh`:
+- **NVIDIA GPUs:** Full hardware acceleration via `docker-compose.nvidia.yml` (requires **[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)** on the host).
+- **AMD & Intel GPUs:** Full hardware acceleration out of the box via Linux Direct Rendering Infrastructure (`/dev/dri`) and Mesa—no extra toolkit required.
+- **No GPU (CPU-only):** Automatically falls back to Mesa CPU software rendering (`llvmpipe`).
 
 ---
 
