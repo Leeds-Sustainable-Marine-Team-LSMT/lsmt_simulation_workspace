@@ -36,10 +36,9 @@ sudo docker compose build
 ---
 
 ### 3. Launch the Container
-Make sure the launch script is executable, then run it. It automatically grants X11 display access, detects your GPU (NVIDIA, AMD, or Intel), and drops you into the container at `root@<hostname>:/ros2_ws#`:
+This script automatically detects your host hardware (NVIDIA, AMD, or Intel) and boots the container with the correct GPU acceleration:
 
 ```bash
-chmod +x launch_lsmt.sh
 ./launch_lsmt.sh
 ```
 
