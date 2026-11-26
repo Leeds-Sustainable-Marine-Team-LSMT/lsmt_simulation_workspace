@@ -5,73 +5,112 @@ A hardware-agnostic, containerised **ROS 2 Humble** and **Gazebo Garden (VRX)** 
 ---
 
 ## Table of Contents
-1. [Environment & Docker Setup](#1-environment--docker-setup)
-2. [Docker & Workspace Architecture](#2-docker--workspace-architecture)
+1. [Environment & Docker / Apptainer Setup](#1-environment--docker--apptainer-setup)
+2. [Container & Workspace Architecture](#2-container--workspace-architecture)
 3. [Simulation Architecture](#3-simulation-architecture)
 4. [Launching & Controlling the Simulation](#4-launching--controlling-the-simulation)
 5. [Development Process & Instructions](#5-development-process--instructions)
 
 ---
 
-## 1. Environment & Docker Setup
+## 1. Environment & Docker / Apptainer Setup
 
 ### Prerequisites & Hardware Support
-Before starting, ensure you have the following installed on your Linux host machine:
-- **Git**
-- **Docker** and **Docker Compose** (`docker compose` plugin)
+- **Personal Linux PCs (with root/sudo access):** **Git**, **Docker**, and **Docker Compose** (`docker compose` plugin).
+- **University PCs (without root access):** **Git** and **Apptainer** (or **Singularity**). No `sudo` or Docker daemon access is needed.
 
 #### GPU Acceleration Support
-The environment automatically adapts to your hardware when launched via `./launch_lsmt.sh`:
-- **NVIDIA GPUs:** Full hardware acceleration via `docker-compose.nvidia.yml` (requires **[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)** on the host).
+Both launch scripts automatically detect your hardware:
+- **NVIDIA GPUs:** Full hardware acceleration via `docker-compose.nvidia.yml` on Docker (requires **[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)**) or `--nv` on Apptainer/Singularity.
 - **AMD & Intel GPUs:** Full hardware acceleration out of the box via Linux Direct Rendering Infrastructure (`/dev/dri`) and Mesa, with no extra toolkit required.
 - **No GPU (CPU-only):** Automatically falls back to Mesa CPU software rendering (`llvmpipe`).
 
-### First-Time Setup: From Zero to Running
+### First-Time Setup
 
-#### Step 1: Clone the Repository
-```bash
-git clone git@github.com:Leeds-Sustainable-Marine-Team-LSMT/lsmt_simulation_workspace.git
-cd lsmt_simulation_workspace
-```
-*(Or using HTTPS: `git clone https://github.com/Leeds-Sustainable-Marine-Team-LSMT/lsmt_simulation_workspace.git`)*
+#### Option A: Personal Linux Machine (Docker)
 
-#### Step 2: Build the Docker Image (Run Once)
-This downloads Ubuntu 22.04, ROS 2 Humble, Gazebo Garden, `ros_gz` bridges, and all VRX dependencies defined in the `Dockerfile`:
-```bash
-sudo docker compose build
-```
+1. **Clone the repository:**
+   ```bash
+   git clone git@github.com:Leeds-Sustainable-Marine-Team-LSMT/lsmt_simulation_workspace.git
+   cd lsmt_simulation_workspace
+   ```
+   *(Or using HTTPS: `git clone https://github.com/Leeds-Sustainable-Marine-Team-LSMT/lsmt_simulation_workspace.git`)*
 
-#### Step 3: Launch the Container
-This script automatically detects your host hardware (NVIDIA, AMD, or Intel) and boots the container with the correct GPU acceleration:
-```bash
-./launch_lsmt.sh
-```
+2. **Build the Docker image (run once):**
+   This downloads Ubuntu 22.04, ROS 2 Humble, Gazebo Garden, `ros_gz` bridges, and all VRX dependencies defined in `Dockerfile`:
+   ```bash
+   sudo docker compose build
+   ```
 
-#### Step 4: Compile the ROS 2 Workspace (First Time Only)
-Once inside the container (`root@<hostname>:/ros2_ws#`), compile the VRX packages using `colcon` and source the overlay:
-```bash
-colcon build --merge-install
-source install/setup.bash
-```
+3. **Launch the container:**
+   ```bash
+   ./launch_lsmt.sh
+   ```
+
+4. **Compile the ROS 2 workspace (first time only):**
+   Once inside the container (`root@<hostname>:/ros2_ws#`), compile the workspace and source the overlay:
+   ```bash
+   colcon build --merge-install
+   source install/setup.bash
+   ```
 
 > **Note:** After completing the first-time setup above, both `/opt/ros/humble/setup.bash` and `/ros2_ws/install/setup.bash` are **automatically sourced** every time the container starts. You do not need to run `colcon build` again unless you edit or add packages in `src/`.
 
+#### Option B: University PCs without Root Access (Apptainer / Singularity)
+
+University lab workstations typically block `docker` and `sudo`, so `launch_lsmt.sh` and `docker compose` cannot be used there. Instead, use `launch_lsmt_uni.sh`, which runs the exact same environment rootlessly using a `.sif` container image via **Apptainer** or **Singularity**.
+
+1. **Clone the repository on the university PC:**
+   ```bash
+   git clone git@github.com:Leeds-Sustainable-Marine-Team-LSMT/lsmt_simulation_workspace.git
+   cd lsmt_simulation_workspace
+   ```
+
+2. **Obtain the `.sif` image (`lsmt.sif`) without root access:**
+   *(If your lab already has a shared `.sif` file, skip this step and pass its path directly to `./launch_lsmt_uni.sh /path/to/lsmt.sif`. If the lab uses `singularity` instead of `apptainer`, substitute `singularity` in the commands below.)*
+   - **Method 1 (Pull from a container registry):**
+     ```bash
+     apptainer pull lsmt.sif docker://<registry>/<image>:<tag>
+     ```
+   - **Method 2 (Export from a Docker machine and convert):**
+     On a personal machine where `sudo docker compose build` has already been run, export the image as a `.tar` archive:
+     ```bash
+     sudo docker save lsmt_simulation_workspace-ros-dev:latest -o lsmt.tar
+     ```
+     Transfer `lsmt.tar` to the university PC (USB or `scp`), then build the `.sif` image inside `lsmt_simulation_workspace`:
+     ```bash
+     apptainer build lsmt.sif docker-archive://lsmt.tar
+     ```
+
+3. **Launch the container:**
+   ```bash
+   ./launch_lsmt_uni.sh
+   ```
+   *(Or pass a custom/shared image path: `./launch_lsmt_uni.sh /path/to/lsmt.sif`, or set `LSMT_SIF=/path/to/lsmt.sif`.)*
+
+4. **Compile the ROS 2 workspace (first time only):**
+   ```bash
+   colcon build --merge-install
+   source install/setup.bash
+   ```
+
 ---
 
-## 2. Docker & Workspace Architecture
+## 2. Container & Workspace Architecture
 
-The project separates the **Docker infrastructure** (at the repository root) from the **ROS 2 source packages** (inside `src/`), linking them together via bind mounts and persistent volumes:
+The project separates the **container infrastructure** (at the repository root) from the **ROS 2 source packages** (inside `src/`). Because Apptainer `.sif` images are read-only, `build/`, `install/`, and `log/` are bind-mounted to local host folders (ignored by `.gitignore`) instead of Docker named volumes:
 
-| Container Path | Host Location | Purpose |
-| :--- | :--- | :--- |
-| `/ros2_ws/src` | `./src` (in this repo folder) | **Live-synced source code.** Edit or create ROS 2 C++/Python packages in VS Code on your host machine; changes appear immediately inside the container. |
-| `/ros2_ws/build` | Docker volume (`ros2_build`) | Persistent CMake/Colcon intermediate build files. |
-| `/ros2_ws/install` | Docker volume (`ros2_install`) | Persistent compiled ROS 2 binaries and environment hooks. |
-| `/ros2_ws/log` | Docker volume (`ros2_log`) | Persistent `colcon` build and runtime logs. |
+| Container Path | Host Location (Docker) | Host Location (Uni PC / Apptainer) | Purpose |
+| :--- | :--- | :--- | :--- |
+| `/ros2_ws/src` | `./src` | `./src` | **Live-synced source code.** Edit ROS 2 C++/Python packages in VS Code on the host; changes appear immediately inside the container. |
+| `/ros2_ws/build` | Docker volume (`ros2_build`) | `./build` (git-ignored) | Persistent CMake/Colcon intermediate build files. |
+| `/ros2_ws/install` | Docker volume (`ros2_install`) | `./install` (git-ignored) | Persistent compiled ROS 2 binaries and environment hooks. |
+| `/ros2_ws/log` | Docker volume (`ros2_log`) | `./log` (git-ignored) | Persistent `colcon` build and runtime logs. |
 
 - **`Dockerfile`:** Defines the Ubuntu 22.04 + ROS 2 Humble + Gazebo Garden image and pre-installs `ros_gz` bridges and VRX dependencies.
-- **`docker-compose.yml` & `docker-compose.nvidia.yml`:** Passes X11 display sockets, `/dev/dri` GPU devices, and NVIDIA PRIME render offload into the container so Gazebo and RViz2 windows open natively on the host desktop.
-- **`launch_lsmt.sh`:** Grants local X11 display access (`xhost +local:root`), checks for an active NVIDIA GPU via `nvidia-smi`, and starts the container.
+- **`docker-compose.yml` & `docker-compose.nvidia.yml`:** Passes X11 display sockets, `/dev/dri` GPU devices, and NVIDIA PRIME render offload into the Docker container so Gazebo and RViz2 windows open natively on the host desktop.
+- **`launch_lsmt.sh`:** Docker launch script for personal machines; grants local X11 display access (`xhost +local:root`), checks for an active NVIDIA GPU via `nvidia-smi`, and starts the container.
+- **`launch_lsmt_uni.sh`:** Rootless Apptainer/Singularity launch script for university PCs; auto-detects `apptainer` or `singularity`, adds `--nv` when an NVIDIA GPU is present, bind-mounts `./src`, `./build`, `./install`, and `./log`, and runs as your normal user account (so files stay owned by you with no `xhost` or `chmod 777` needed). It also explicitly sources `/opt/ros/humble/setup.bash` and `/ros2_ws/install/setup.bash` using `--norc` so your host `~/.bashrc` does not override the container environment.
 
 ---
 
@@ -80,9 +119,10 @@ The project separates the **Docker infrastructure** (at the repository root) fro
 ### Repository & Package Structure
 
 - `Dockerfile` - Container OS, ROS 2 Humble & Gazebo Garden image definition
-- `docker-compose.yml` - Base container configuration & persistent volumes
-- `docker-compose.nvidia.yml` - NVIDIA GPU hardware acceleration override
-- `launch_lsmt.sh` - Hardware-detecting container launch script
+- `docker-compose.yml` - Base Docker configuration & persistent volumes
+- `docker-compose.nvidia.yml` - NVIDIA GPU hardware acceleration override for Docker
+- `launch_lsmt.sh` - Hardware-detecting Docker launch script (personal PCs)
+- `launch_lsmt_uni.sh` - Rootless Apptainer/Singularity launch script (university PCs)
 - `src/` - ROS 2 Workspace Source Directory
   - **`vrx/`** - Upstream VRX simulation packages (treat as read-only)
     - `vrx_urdf/` - Default WAM-V catamaran description (`wamv_description`, `wamv_gazebo`)
@@ -121,17 +161,23 @@ When LSMT's custom Njord hull and thruster layout are finalised, only the robot 
 ## 4. Launching & Controlling the Simulation
 
 ### Step 1: Launch VRX Simulation
-Start the container (`./launch_lsmt.sh`) and launch the default Sydney Regatta world:
+Start the container (`./launch_lsmt.sh` on Docker, or `./launch_lsmt_uni.sh` on a uni PC) and launch the default Sydney Regatta world:
 ```bash
 ros2 launch vrx_gz competition.launch.py world:=sydney_regatta
 ```
 Other available task worlds include `follow_path_task`, `navigation_task`, `wayfinding_task`, and `stationkeeping_task`.
 
-### Step 2: Open a Second Terminal Inside the Running Container
-On your **host machine**, open a new terminal tab (`Ctrl+Shift+T`) and attach to the running container:
+For lower-memory laptops (e.g. 8 GB RAM or integrated graphics), run VRX headless (full physics, sensors, and ROS 2 bridges without the heavy 3D Gazebo GUI) and visualise topics in `rviz2`:
 ```bash
-sudo docker exec -it $(sudo docker ps -q) bash
+ros2 launch vrx_gz competition.launch.py world:=sydney_regatta headless:=True
 ```
+
+### Step 2: Open a Second Terminal Inside the Running Container
+- **On Docker (personal PC):** Open a new terminal tab (`Ctrl+Shift+T`) on your host machine and attach to the running container:
+  ```bash
+  sudo docker exec -it $(sudo docker ps -q) bash
+  ```
+- **On Uni PCs (Apptainer / Singularity):** Simply open a new terminal tab and run `./launch_lsmt_uni.sh` again. Apptainer instances run directly under your user session, sharing the host network and the bind-mounted `/ros2_ws` directories without needing `docker exec`.
 
 ### Step 3: Inspect WAM-V Topics & Test Thrusters Manually
 List the active WAM-V sensor and thruster topics:
@@ -176,18 +222,21 @@ Create custom packages inside `/ros2_ws/src` alongside `vrx/` (never inside `vrx
   ```bash
   cd /ros2_ws/src
   ros2 pkg create <package_name> --build-type ament_cmake --dependencies rclcpp std_msgs geometry_msgs
-  chmod -R 777 <package_name>
   ```
 - **For a Python package (`ament_python`):**
   ```bash
   cd /ros2_ws/src
   ros2 pkg create <package_name> --build-type ament_python --dependencies rclpy std_msgs geometry_msgs
-  chmod -R 777 <package_name>
   ```
-*(Run `chmod -R 777 <package_name>` inside the container so VS Code on the host machine has write permissions to edit the new files.)*
+*(When using Docker as `root`, also run `chmod -R 777 <package_name>` inside the container so VS Code on the host machine has write permissions to edit the new files. On Apptainer/Singularity, files are already owned by your user so `chmod` is not needed.)*
 
 ### Resetting / Cleaning the Build Cache
-If you ever want to perform a completely clean rebuild (wiping `build/`, `install/`, and `log/` volumes without touching `src/`), run this on your **host machine**:
-```bash
-sudo docker compose down -v
-```
+If you ever want to perform a completely clean rebuild (wiping `build/`, `install/`, and `log/` without touching `src/`), run on your **host machine**:
+- **Docker:**
+  ```bash
+  sudo docker compose down -v
+  ```
+- **Uni PC (Apptainer / Singularity):**
+  ```bash
+  rm -rf build/ install/ log/
+  ```
